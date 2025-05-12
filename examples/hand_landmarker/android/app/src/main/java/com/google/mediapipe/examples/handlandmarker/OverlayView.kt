@@ -15,24 +15,19 @@
  */
 package com.google.mediapipe.examples.handlandmarker
 
+import android.app.Activity
 import android.content.Context
-import android.content.res.Resources
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PointF
 import android.util.AttributeSet
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.google.mediapipe.examples.handlandmarker.utils.UtilityHelper
 import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
@@ -40,25 +35,21 @@ import kotlin.math.min
 class OverlayView(context: Context?, attrs: AttributeSet?) :
     View(context, attrs) {
 
+    val nailUIViewModel: NailUIViewModel = NailUIViewModel((context as Activity).application)
+
     private var results: HandLandmarkerResult? = null
     private var linePaint = Paint()
     private var pointPaint = Paint()
 
+    private var thumbNail: Path = Path()
+    private var fing1: Path = Path()
+    private var fing2: Path = Path()
+    private var fing3: Path = Path()
+    private var fing4: Path = Path()
+
     private var scaleFactor: Float = 1f
     private var imageWidth: Int = 1
     private var imageHeight: Int = 1
-
-
-    private lateinit var finger1a: PointF
-    private lateinit var finger1b: PointF
-    private lateinit var finger2a: PointF
-    private lateinit var finger2b: PointF
-    private lateinit var finger3a: PointF
-    private lateinit var finger3b: PointF
-    private lateinit var finger4a: PointF
-    private lateinit var finger4b: PointF
-    private lateinit var thumb: PointF
-    private lateinit var thumb2: PointF
 
     init {
         initPaints()
@@ -76,7 +67,7 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
         linePaint.color =
             ContextCompat.getColor(context!!, R.color.mp_color_primary)
         linePaint.strokeWidth = LANDMARK_STROKE_WIDTH
-        linePaint.style = Paint.Style.STROKE
+        linePaint.style = Paint.Style.FILL
 
         pointPaint.color = Color.YELLOW
         pointPaint.strokeWidth = LANDMARK_STROKE_WIDTH
@@ -85,136 +76,87 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
 
     override fun draw(canvas: Canvas) {
         super.draw(canvas)
-        results?.let { handLandmarkerResult ->
-            println("handLandmarkerResult ${handLandmarkerResult.worldLandmarks()}  ")
-            for (landmark in handLandmarkerResult.landmarks()) {
+        results?.let { handLandmarkResult ->
+            for (landmark in handLandmarkResult.landmarks()) {
                 var index = 0
                 for (normalizedLandmark in landmark) {
                     index += 1
                     val localX = normalizedLandmark.x() * imageWidth * scaleFactor
                     val localY = normalizedLandmark.y() * imageHeight * scaleFactor
-
-                    val angle = when (index) {
-                        4 -> {
-                            thumb = PointF(localX, localY)
-                            0F
-                        }
-
-                        5 -> {
-                            thumb2 = PointF(localX, localY)
-                            UtilityHelper.getAngle(thumb, thumb2)
-                        }
-
-                        8 -> {
-                            finger1a = PointF(localX, localY)
-                            0F
-                        }
-
-                        9 -> {
-                            finger1b = PointF(localX, localY)
-                            UtilityHelper.getAngle(finger1a, finger1b)
-                        }
-
-                        12 -> {
-                            finger2a = PointF(localX, localY)
-                            0F
-                        }
-
-                        13 -> {
-                            finger2b = PointF(localX, localY)
-                            UtilityHelper.getAngle(finger2a, finger2b)
-                        }
-
-                        16 -> {
-                            finger3a = PointF(localX, localY)
-                            0F
-                        }
-
-                        17 -> {
-                            finger3b = PointF(localX, localY)
-                            UtilityHelper.getAngle(finger3a, finger3b)
-                        }
-
-                        landmark.size - 1 -> {
-                            finger4a = PointF(localX, localY)
-                            0F
-                        }
-
-                        landmark.size -> {
-                            finger4b = PointF(localX, localY)
-                            UtilityHelper.getAngle(finger4a, finger4b)
-                        }
-
-                        else -> {
-                            0f
-                        }
-                    }
-
-
-                    if (index == 5 || index == 9 || index == 13 || index == 17 || index == landmark.size) {
-                        try {
-                            val res: Resources = resources
-                            val bitmap = BitmapFactory.decodeResource(res, R.drawable.nailpaint)
-                            val matrix = Matrix()
-                            matrix.preRotate(angle)
-                            println(" Angle for nail "+angle)
-                            val bmResult = Bitmap.createBitmap(
-                                bitmap,
-                                0,
-                                0,
-                                ceil(400 * abs(normalizedLandmark.z())).toInt(),
-                                ceil(500 * abs(normalizedLandmark.z())).toInt(),
-                                matrix,
-                                true
-                            )
-                            canvas.drawBitmap(
-                                bmResult,
-                                (localX - (bmResult.width / 2)),
-                                (localY - (bmResult.height / 2)),
-                                null
-                            )
-                        } catch (ex: Exception) {
-                            ex.printStackTrace()
-                        }
-                        //println(" depth " + normalizedLandmark.z())
-
-                        /*val vectorDrawable = ResourcesCompat.getDrawable(
-                            resources,
-                            R.drawable.nail,
-                            null
+                    nailUIViewModel.onEvent(
+                        NailUIEvent.SetFingerData(
+                            index,
+                            PointF(localX, localY)
                         )
-                        vectorDrawable?.setBounds(
-                            (localX - 40).toInt(),
-                            (localY - 70).toInt(),
-                            (localX + 40).toInt(),
-                            (localY + 70).toInt()
-                        )
-                        vectorDrawable?.draw(canvas)*/
-                    } /*else {
-                        pointPaint.color = Color.YELLOW
-                        canvas.drawPoint(
-                            localX,
-                            localY,
-                            pointPaint
-                        )
-                    }*/
-
-                    //println("points     $localX    $localY   final  $finalX   $finalY")
-                }
-
-               /* HandLandmarker.HAND_CONNECTIONS.forEach {
-                    canvas.drawLine(
-                        landmark[it!!.start()]
-                            .x() * imageWidth * scaleFactor,
-                        landmark[it.start()]
-                            .y() * imageHeight * scaleFactor,
-                        landmark[it.end()]
-                            .x() * imageWidth * scaleFactor,
-                        landmark[it.end()]
-                            .y() * imageHeight * scaleFactor,
-                        linePaint
                     )
-                }*/
+                    if (index == 5 && nailUIViewModel.nailUiState.value.thumb != null &&
+                        nailUIViewModel.nailUiState.value.thumb2 != null) {
+                        canvas.drawPath(
+                            UtilityHelper.getTiltedPath(
+                                index,
+                                thumbNail,
+                                nailUIViewModel.nailUiState.value.thumb2!!,
+                                UtilityHelper.getCenterPoint(
+                                    nailUIViewModel.nailUiState.value.thumb2!!,
+                                    nailUIViewModel.nailUiState.value.thumb!!
+                                )
+                            ), linePaint
+                        )
+                    } else if (index == 9 && nailUIViewModel.nailUiState.value.finger1a != null &&
+                        nailUIViewModel.nailUiState.value.finger1b != null) {
+                        canvas.drawPath(
+                            UtilityHelper.getTiltedPath(
+                                index,
+                                fing1,
+                                nailUIViewModel.nailUiState.value.finger1b!!,
+                                UtilityHelper.getCenterPoint(
+                                    nailUIViewModel.nailUiState.value.finger1a!!,
+                                    nailUIViewModel.nailUiState.value.finger1b!!
+                                )
+                            ), linePaint
+                        )
+                    } else if (index == 13 && nailUIViewModel.nailUiState.value.finger2a != null &&
+                        nailUIViewModel.nailUiState.value.finger2b != null) {
+                        canvas.drawPath(
+                            UtilityHelper.getTiltedPath(
+                                index,
+                                fing2,
+                                nailUIViewModel.nailUiState.value.finger2b!!,
+                                UtilityHelper.getCenterPoint(
+                                    nailUIViewModel.nailUiState.value.finger2b!!,
+                                    nailUIViewModel.nailUiState.value.finger2a!!
+                                )
+                            ), linePaint
+                        )
+                    } else if (index == 14 && nailUIViewModel.nailUiState.value.finger3a != null &&
+                        nailUIViewModel.nailUiState.value.finger3b != null
+                    ) {
+                        canvas.drawPath(
+                            UtilityHelper.getTiltedPath(
+                                index,
+                                fing3,
+                                nailUIViewModel.nailUiState.value.finger3b!!,
+                                UtilityHelper.getCenterPoint(
+                                    nailUIViewModel.nailUiState.value.finger3b!!,
+                                    nailUIViewModel.nailUiState.value.finger3a!!
+                                )
+                            ), linePaint
+                        )
+                    } else if (index == landmark.size && nailUIViewModel.nailUiState.value.finger4a != null &&
+                        nailUIViewModel.nailUiState.value.finger4b != null) {
+                        canvas.drawPath(
+                            UtilityHelper.getTiltedPath(
+                                index,
+                                fing4,
+                                nailUIViewModel.nailUiState.value.finger4b!!,
+                                UtilityHelper.getCenterPoint(
+                                    nailUIViewModel.nailUiState.value.finger4b!!,
+                                    nailUIViewModel.nailUiState.value.finger4a!!
+                                )
+                            ), linePaint
+                        )
+                    }
+                }
             }
         }
     }
